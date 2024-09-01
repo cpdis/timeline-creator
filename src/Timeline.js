@@ -90,7 +90,7 @@ const Timeline = () => {
   };
 
   const formatDate = (date) => {
-    return date.toLocaleString("en-US", {
+    return date.toLocaleString(undefined, {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

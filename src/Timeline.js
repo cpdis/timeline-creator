@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { supabase } from "./supabaseClient";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,26 +22,17 @@ ChartJS.register(
   Legend
 );
 
-const Timeline = () => {
-  const [projectInfo, setProjectInfo] = useState(() => {
-    const savedInfo = localStorage.getItem("projectInfo");
-    return savedInfo
-      ? JSON.parse(savedInfo)
-      : {
-          title: "",
-          customer: "",
-          startDateTime: "",
-          disconnectLocation: "",
-          connectLocation: "",
-          rig: "",
-          vessel: "",
-          logo: null,
-        };
+const Timeline = ({ projectId, onCreateProject }) => {
+  const [projectInfo, setProjectInfo] = useState({
+    title: "",
+    customer: "",
+    startDateTime: "",
+    disconnectLocation: "",
+    connectLocation: "",
+    rig: "",
+    vessel: "",
   });
-  const [events, setEvents] = useState(() => {
-    const savedEvents = localStorage.getItem("events");
-    return savedEvents ? JSON.parse(savedEvents) : [];
-  });
+  const [events, setEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({
     line: "",
     operation: "",
@@ -55,12 +47,91 @@ const Timeline = () => {
   const chartRef = useRef(null);
 
   useEffect(() => {
-    localStorage.setItem("projectInfo", JSON.stringify(projectInfo));
-  }, [projectInfo]);
+    if (projectId) {
+      fetchProjectInfo();
+      fetchEvents();
+    }
+  }, [projectId]);
 
-  useEffect(() => {
-    localStorage.setItem("events", JSON.stringify(events));
-  }, [events]);
+  async function fetchProjectInfo() {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", projectId)
+      .single();
+
+    if (error) console.log("Error fetching project info:", error);
+    else setProjectInfo(data);
+  }
+
+  async function fetchEvents() {
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("id", { ascending: true });
+
+    if (error) console.log("Error fetching events:", error);
+    else setEvents(data);
+  }
+
+  async function saveProject() {
+    if (!projectInfo.title) {
+      alert("Please enter a project title");
+      return;
+    }
+
+    // Create a copy of projectInfo to modify
+    const projectToSave = { ...projectInfo };
+
+    // If startDateTime is empty, set it to null
+    if (!projectToSave.startDateTime) {
+      projectToSave.startDateTime = null;
+    }
+
+    const { data, error } = await supabase
+      .from("projects")
+      .upsert(projectToSave)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error saving project:", error);
+      alert("Error saving project. Please try again.");
+    } else {
+      onCreateProject(data);
+      alert("Project saved successfully!");
+    }
+  }
+
+  async function updateProjectInfo(updatedInfo) {
+    const { data, error } = await supabase
+      .from("projects")
+      .update(updatedInfo)
+      .eq("id", projectId);
+
+    if (error) console.log("Error updating project info:", error);
+    else fetchProjectInfo();
+  }
+
+  async function addEventToDatabase(newEvent) {
+    const { data, error } = await supabase
+      .from("events")
+      .insert({ ...newEvent, project_id: projectId });
+
+    if (error) console.log("Error adding event:", error);
+    else fetchEvents();
+  }
+
+  async function updateEventInDatabase(updatedEvent) {
+    const { data, error } = await supabase
+      .from("events")
+      .update(updatedEvent)
+      .eq("id", updatedEvent.id);
+
+    if (error) console.log("Error updating event:", error);
+    else fetchEvents();
+  }
 
   useEffect(() => {
     if (chartRef.current) {
@@ -77,11 +148,13 @@ const Timeline = () => {
 
   const handleProjectInfoChange = (e) => {
     const { name, value } = e.target;
-    setProjectInfo((prev) => {
-      const updated = { ...prev, [name]: value };
-      localStorage.setItem("projectInfo", JSON.stringify(updated));
-      return updated;
-    });
+    if (name === "startDateTime") {
+      // Format the date to conform to the required format
+      const formattedDate = new Date(value).toISOString().slice(0, 16);
+      setProjectInfo((prev) => ({ ...prev, [name]: formattedDate }));
+    } else {
+      setProjectInfo((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleInputChange = (e) => {
@@ -126,10 +199,7 @@ const Timeline = () => {
   };
 
   const addEvent = () => {
-    setEvents((prev) => {
-      const updatedEvents = calculateTimes([...prev, { ...newEvent }]);
-      return updatedEvents;
-    });
+    addEventToDatabase({ ...newEvent });
     setNewEvent({
       line: "",
       operation: "",
@@ -156,6 +226,7 @@ const Timeline = () => {
     const updatedEvents = [...events];
     updatedEvents[index] = { ...updatedEvents[index], [field]: value };
     setEvents(calculateTimes(updatedEvents));
+    updateEventInDatabase(updatedEvents[index]);
   };
 
   const renderEditableCell = (event, index, field) => {
@@ -200,6 +271,7 @@ const Timeline = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setProjectInfo((prev) => ({ ...prev, logo: reader.result }));
+        updateProjectInfo({ logo: reader.result });
       };
       reader.readAsDataURL(file);
     }
@@ -337,7 +409,7 @@ const Timeline = () => {
           {!projectInfo.logo && (
             <label
               htmlFor="logo-upload"
-              className="cursor-pointer bg-blue-800 text-white p-2 rounded"
+              className="cursor-pointer bg-blue-500 text-white p-2 rounded"
             >
               Upload Logo
             </label>
@@ -382,7 +454,11 @@ const Timeline = () => {
         <input
           type="datetime-local"
           name="startDateTime"
-          value={projectInfo.startDateTime}
+          value={
+            projectInfo.startDateTime
+              ? projectInfo.startDateTime.slice(0, 16)
+              : ""
+          }
           onChange={handleProjectInfoChange}
           className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
@@ -418,6 +494,12 @@ const Timeline = () => {
           placeholder="Vessel"
           className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
+        <button
+          onClick={saveProject}
+          className="w-1/4 col-span-2 bg-blue-500 text-white p-3 rounded-md hover:bg-blue-600 transition"
+        >
+          Save
+        </button>
       </div>
 
       <hr className="my-8 border-t border-gray-300" />
@@ -573,7 +655,7 @@ const styles = `
   }
 
   input, textarea {
-    font-weight: 300;
+    font-weight: 500;
     border-radius: 0.375rem;
     transition: all 0.3s ease;
   }

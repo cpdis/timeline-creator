@@ -22,7 +22,7 @@ ChartJS.register(
   Legend
 );
 
-const Timeline = ({ projectId, onCreateProject }) => {
+const Timeline = ({ projectId, onCreateProject, onUpdateProject }) => {
   const [projectInfo, setProjectInfo] = useState({
     title: "",
     customer: "",
@@ -60,8 +60,17 @@ const Timeline = ({ projectId, onCreateProject }) => {
       .eq("id", projectId)
       .single();
 
-    if (error) console.log("Error fetching project info:", error);
-    else setProjectInfo(data);
+    if (error) {
+      console.log("Error fetching project info:", error);
+    } else {
+      const formattedData = {
+        ...data,
+        startDateTime: data.startDateTime
+          ? new Date(data.startDateTime).toISOString().slice(0, 16)
+          : "",
+      };
+      setProjectInfo(formattedData);
+    }
   }
 
   async function fetchEvents() {
@@ -71,8 +80,19 @@ const Timeline = ({ projectId, onCreateProject }) => {
       .eq("project_id", projectId)
       .order("id", { ascending: true });
 
-    if (error) console.log("Error fetching events:", error);
-    else setEvents(data);
+    if (error) {
+      console.log("Error fetching events:", error);
+    } else {
+      setEvents(
+        data.map((event) => ({
+          ...event,
+          estimatedDuration: event.estimated_duration,
+          actualDuration: event.actual_duration,
+          startDateTime: new Date(event.start_date_time).toLocaleString(),
+          endDateTime: new Date(event.end_date_time).toLocaleString(),
+        }))
+      );
+    }
   }
 
   async function saveProject() {
@@ -81,11 +101,12 @@ const Timeline = ({ projectId, onCreateProject }) => {
       return;
     }
 
-    // Create a copy of projectInfo to modify
     const projectToSave = { ...projectInfo };
-
-    // If startDateTime is empty, set it to null
-    if (!projectToSave.startDateTime) {
+    if (projectToSave.startDateTime) {
+      projectToSave.startDateTime = new Date(
+        projectToSave.startDateTime
+      ).toISOString();
+    } else {
       projectToSave.startDateTime = null;
     }
 
@@ -115,22 +136,58 @@ const Timeline = ({ projectId, onCreateProject }) => {
   }
 
   async function addEventToDatabase(newEvent) {
+    const lastEvent = events[events.length - 1];
+    let startDateTime = new Date(projectInfo.startDateTime);
+
+    if (lastEvent) {
+      startDateTime = new Date(lastEvent.end_date_time);
+    }
+
+    const endDateTime = new Date(
+      startDateTime.getTime() +
+        parseFloat(newEvent.estimatedDuration || 0) * 60 * 60 * 1000
+    );
+
     const { data, error } = await supabase
       .from("events")
-      .insert({ ...newEvent, project_id: projectId });
+      .insert({
+        project_id: projectId,
+        line: newEvent.line,
+        operation: newEvent.operation,
+        estimated_duration: parseFloat(newEvent.estimatedDuration),
+        actual_duration: parseFloat(newEvent.actualDuration) || null,
+        start_date_time: startDateTime.toISOString(),
+        end_date_time: endDateTime.toISOString(),
+        remarks: newEvent.remarks,
+      })
+      .select();
 
-    if (error) console.log("Error adding event:", error);
-    else fetchEvents();
+    if (error) {
+      console.log("Error adding event:", error);
+    } else {
+      fetchEvents();
+    }
   }
 
   async function updateEventInDatabase(updatedEvent) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("events")
-      .update(updatedEvent)
+      .update({
+        line: updatedEvent.line,
+        operation: updatedEvent.operation,
+        estimated_duration: parseInt(updatedEvent.estimatedDuration),
+        actual_duration: parseInt(updatedEvent.actualDuration),
+        start_date_time: updatedEvent.startDateTime,
+        end_date_time: updatedEvent.endDateTime,
+        remarks: updatedEvent.remarks,
+      })
       .eq("id", updatedEvent.id);
 
-    if (error) console.log("Error updating event:", error);
-    else fetchEvents();
+    if (error) {
+      console.log("Error updating event:", error);
+    } else {
+      fetchEvents();
+    }
   }
 
   useEffect(() => {
@@ -210,23 +267,9 @@ const Timeline = ({ projectId, onCreateProject }) => {
   };
 
   const handleCellEdit = (index, field, value) => {
-    // For duration fields, only allow numbers and a single decimal point
-    if (field === "estimatedDuration" || field === "actualDuration") {
-      // Allow empty string for actualDuration
-      if (field === "actualDuration" && value === "") {
-        // Do nothing, allow empty string
-      } else {
-        value = value.replace(/[^\d.]/g, "");
-        const parts = value.split(".");
-        if (parts.length > 2) {
-          value = parts[0] + "." + parts.slice(1).join("");
-        }
-      }
-    }
-    const updatedEvents = [...events];
-    updatedEvents[index] = { ...updatedEvents[index], [field]: value };
-    setEvents(calculateTimes(updatedEvents));
-    updateEventInDatabase(updatedEvents[index]);
+    const updatedEvent = { ...events[index], [field]: value };
+    updateEventInDatabase(updatedEvent);
+    setEditingCell(null);
   };
 
   const renderEditableCell = (event, index, field) => {
@@ -375,11 +418,13 @@ const Timeline = ({ projectId, onCreateProject }) => {
       0
     );
     const actualDays = events.reduce(
-      (sum, event) => sum + parseFloat(event.actualDuration) / 24,
+      (sum, event) => sum + (parseFloat(event.actualDuration) || 0) / 24,
       0
     );
     const lastEvent = events[events.length - 1];
-    const estimatedCompletionDate = lastEvent ? lastEvent.endDateTime : "";
+    const estimatedCompletionDate = lastEvent
+      ? new Date(lastEvent.endDateTime).toLocaleString()
+      : "N/A";
 
     return {
       estimatedDays: estimatedDays.toFixed(2),
@@ -581,6 +626,7 @@ const Timeline = ({ projectId, onCreateProject }) => {
             onChange={handleInputChange}
             placeholder="Actual (hours)"
             className="border text-center p-2 w-48"
+            step="0.01"
           />
           <input
             type="text"

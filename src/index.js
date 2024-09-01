@@ -23,6 +23,22 @@ const App = () => {
 
   const handleSelectProject = (projectId) => {
     setSelectedProjectId(projectId);
+    fetchProjectDetails(projectId);
+  };
+
+  const fetchProjectDetails = async (projectId) => {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", projectId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching project details:", error);
+    } else {
+      // Update the Timeline component with the fetched project details
+      // You'll need to pass this data to the Timeline component
+    }
   };
 
   const handleCreateProject = () => {

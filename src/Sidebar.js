@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 const Sidebar = ({
   projects,
@@ -7,13 +7,26 @@ const Sidebar = ({
   onCreateProject,
   selectedProjectId,
 }) => {
-  const [hoveredProject, setHoveredProject] = useState(null);
   const [showOptions, setShowOptions] = useState(null);
+  const optionsRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (optionsRef.current && !optionsRef.current.contains(event.target)) {
+        setShowOptions(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
-    <div className="w-80 bg-gray-100 p-4 flex flex-col h-screen">
+    <div className="w-80 bg-gray-100 p-4 flex flex-col h-screen sticky top-0">
       <h2 className="text-xl font-bold mb-4">Projects</h2>
-      <ul className="flex-grow">
+      <ul className="flex-grow overflow-y-auto">
         {projects.map((project) => (
           <li
             key={project.id}
@@ -22,29 +35,36 @@ const Sidebar = ({
                 ? "bg-blue-100 hover:bg-blue-200"
                 : "hover:bg-gray-200"
             }`}
-            onMouseEnter={() => setHoveredProject(project.id)}
-            onMouseLeave={() => setHoveredProject(null)}
+            onClick={() => onSelectProject(project.id)}
           >
             <span
               className="cursor-pointer flex-grow"
-              onClick={() => onSelectProject(project.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptions(project.id);
+              }}
             >
               {project.title}
             </span>
-            {hoveredProject === project.id && (
-              <button
-                className="text-gray-500 hover:text-gray-700"
-                onClick={() => setShowOptions(project.id)}
-              >
-                ⋮
-              </button>
-            )}
+            <button
+              className="text-gray-500 hover:text-gray-700 p-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptions(project.id);
+              }}
+            >
+              ⋮
+            </button>
             {showOptions === project.id && (
-              <div className="absolute right-0 mt-8 w-32 bg-white rounded-md shadow-lg z-10">
+              <div
+                ref={optionsRef}
+                className="absolute right-0 top-full mt-1 w-32 bg-white rounded-md shadow-lg z-10"
+              >
                 <button
                   className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                  onClick={() => {
-                    // Implement edit functionality
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectProject(project.id);
                     setShowOptions(null);
                   }}
                 >
@@ -52,7 +72,8 @@ const Sidebar = ({
                 </button>
                 <button
                   className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     onDeleteProject(project.id);
                     setShowOptions(null);
                   }}

@@ -270,10 +270,10 @@ const Timeline = () => {
     },
     plugins: {
       legend: {
-        position: "top",
+        position: "bottom",
       },
       title: {
-        display: true,
+        display: false,
         text: projectInfo.title || "Project Timeline",
         font: {
           size: 18,

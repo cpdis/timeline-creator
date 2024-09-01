@@ -264,7 +264,12 @@ const Timeline = () => {
         beginAtZero: true,
         title: {
           display: true,
-          text: "Cumulative Duration (hours)",
+          text: "Cumulative Duration (days)",
+        },
+        ticks: {
+          callback: function (value) {
+            return (value / 24).toFixed(1);
+          },
         },
       },
     },
@@ -279,6 +284,15 @@ const Timeline = () => {
           size: 18,
           weight: "bold",
         },
+      },
+    },
+    elements: {
+      line: {
+        borderWidth: 3,
+      },
+      point: {
+        radius: 5,
+        hoverRadius: 7,
       },
     },
   };
@@ -305,10 +319,10 @@ const Timeline = () => {
   const totals = calculateTotals();
 
   return (
-    <div className="p-4 pt-8 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto">
+    <div className="p-8 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto">
       <style>{styles}</style>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">
+      <div className="flex justify-between items-center mb-12">
+        <h1 className="text-4xl font-bold text-gray-800">
           Rig Move Release / Connect Timeline
         </h1>
         <div className="relative">
@@ -348,14 +362,14 @@ const Timeline = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
         <input
           type="text"
           name="title"
           value={projectInfo.title}
           onChange={handleProjectInfoChange}
           placeholder="Project Title"
-          className="border p-2"
+          className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
           type="text"
@@ -363,14 +377,14 @@ const Timeline = () => {
           value={projectInfo.customer}
           onChange={handleProjectInfoChange}
           placeholder="Customer"
-          className="border p-2"
+          className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
           type="datetime-local"
           name="startDateTime"
           value={projectInfo.startDateTime}
           onChange={handleProjectInfoChange}
-          className="border p-2"
+          className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
           type="text"
@@ -378,7 +392,7 @@ const Timeline = () => {
           value={projectInfo.disconnectLocation}
           onChange={handleProjectInfoChange}
           placeholder="Disconnect Location"
-          className="border p-2"
+          className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
           type="text"
@@ -386,7 +400,7 @@ const Timeline = () => {
           value={projectInfo.connectLocation}
           onChange={handleProjectInfoChange}
           placeholder="Connect Location"
-          className="border p-2"
+          className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
           type="text"
@@ -394,7 +408,7 @@ const Timeline = () => {
           value={projectInfo.rig}
           onChange={handleProjectInfoChange}
           placeholder="Rig"
-          className="border p-2"
+          className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
         <input
           type="text"
@@ -402,17 +416,15 @@ const Timeline = () => {
           value={projectInfo.vessel}
           onChange={handleProjectInfoChange}
           placeholder="Vessel"
-          className="border p-2"
+          className="border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
       </div>
 
       <hr className="my-8 border-t border-gray-300" />
 
-      <div className="mb-12 flex justify-center">
+      <div className="mb-12 flex justify-left">
         <div className="w-1/2">
-          <h2 className="text-3xl font-semibold mb-4 text-center">
-            Project Summary
-          </h2>
+          <h2 className="text-3xl font-semibold mb-4">Project Summary</h2>
           <table className="w-full border-collapse border">
             <tbody>
               <tr>
@@ -557,11 +569,44 @@ const styles = `
 
   h1, h2, h3, h4, h5, h6 {
     font-weight: 700;
+    color: #2d3748;
   }
 
   input, textarea {
     font-weight: 300;
-    border-radius: 4px;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+  }
+
+  input:hover, textarea:hover {
+    border-color: #4299e1;
+  }
+
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+  }
+
+  .btn {
+    transition: all 0.3s ease;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  @media (max-width: 768px) {
+    h1 {
+      font-size: 1.875rem;
+    }
+    h2 {
+      font-size: 1.5rem;
+    }
+    .grid {
+      grid-template-columns: 1fr;
+    }
   }
 `;
 
